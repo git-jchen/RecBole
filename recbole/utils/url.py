@@ -79,7 +79,7 @@ def download_url(url, folder):
                     "Downloaded {:.2f} GB".format(float(downloaded_size) / GBFACTOR)
                 )
                 f.write(chunk)
-    except BaseException as e:
+    except Exception as e:
         if os.path.exists(path):
             os.remove(path)
         raise RuntimeError(
@@ -98,7 +98,17 @@ def extract_zip(path, folder):
     """
     logger = getLogger()
     logger.info(f"Extracting {path}")
+    abs_folder = osp.realpath(folder)
     with zipfile.ZipFile(path, "r") as f:
+        for member in f.namelist():
+            member_path = osp.realpath(osp.join(folder, member))
+            if (
+                not member_path.startswith(abs_folder + os.sep)
+                and member_path != abs_folder
+            ):
+                raise ValueError(
+                    f"Zip entry '{member}' would extract outside target directory"
+                )
         f.extractall(folder)
 
 

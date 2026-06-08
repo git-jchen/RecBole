@@ -9,6 +9,7 @@
 # @Email  : linzihan.super@foxmail.com, houyupeng@ruc.edu.cn, zgw15630559577@163.com, zxcptss@gmail.com
 
 import argparse
+import ast
 import os
 import numpy as np
 
@@ -68,7 +69,7 @@ def ray_tune(args):
                 "".join(para_list[2:]),
             )
             if para_type == "choice":
-                para_value = eval(para_value)
+                para_value = ast.literal_eval(para_value)
                 config[para_name] = tune.choice(para_value)
             elif para_type == "uniform":
                 low, high = para_value.strip().split(",")

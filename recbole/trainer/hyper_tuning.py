@@ -14,6 +14,7 @@ recbole.trainer.hyper_tuning
 ############################
 """
 
+import ast
 from functools import partial
 
 import numpy as np
@@ -236,7 +237,7 @@ class HyperTuning(object):
                     "".join(para_list[2:]),
                 )
                 if para_type == "choice":
-                    para_value = eval(para_value)
+                    para_value = ast.literal_eval(para_value)
                     space[para_name] = hp.choice(para_name, para_value)
                 elif para_type == "uniform":
                     low, high = para_value.strip().split(",")
