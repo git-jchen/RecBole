@@ -15,9 +15,9 @@ Reference:
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn.init import xavier_normal_, constant_
 
 from recbole.model.abstract_recommender import ContextRecommender
+from recbole.model.init import xavier_normal_initialization
 from recbole.model.layers import MLPLayers
 
 
@@ -61,19 +61,9 @@ class AutoInt(ContextRecommender):
             )
 
         self.dropout_layer = nn.Dropout(p=self.dropout_probs[2])
-        self.sigmoid = nn.Sigmoid()
-        self.loss = nn.BCEWithLogitsLoss()
 
         # parameters initialization
-        self.apply(self._init_weights)
-
-    def _init_weights(self, module):
-        if isinstance(module, nn.Embedding):
-            xavier_normal_(module.weight.data)
-        elif isinstance(module, nn.Linear):
-            xavier_normal_(module.weight.data)
-            if module.bias is not None:
-                constant_(module.bias.data, 0)
+        self.apply(xavier_normal_initialization)
 
     def autoint_layer(self, infeature):
         """Get the attention-based feature interaction score
@@ -111,10 +101,4 @@ class AutoInt(ContextRecommender):
         )
         return output.squeeze(1)
 
-    def calculate_loss(self, interaction):
-        label = interaction[self.LABEL]
-        output = self.forward(interaction)
-        return self.loss(output, label)
 
-    def predict(self, interaction):
-        return self.sigmoid(self.forward(interaction))

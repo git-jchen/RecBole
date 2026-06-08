@@ -183,6 +183,51 @@ class SequentialRecommender(AbstractRecommender):
         extended_attention_mask = torch.where(extended_attention_mask, 0.0, -10000.0)
         return extended_attention_mask
 
+    def calculate_loss(self, interaction):
+        """Default loss for sequential models supporting both BPR and CE.
+
+        Requires ``self.loss_type``, ``self.loss_fct``, and
+        ``self.item_embedding``.  The ``forward`` method must accept
+        ``(item_seq, item_seq_len)`` and return a sequence output tensor.
+        Subclasses with different forward signatures should override this.
+        """
+        item_seq = interaction[self.ITEM_SEQ]
+        item_seq_len = interaction[self.ITEM_SEQ_LEN]
+        seq_output = self.forward(item_seq, item_seq_len)
+        pos_items = interaction[self.POS_ITEM_ID]
+        if self.loss_type == "BPR":
+            neg_items = interaction[self.NEG_ITEM_ID]
+            pos_items_emb = self.item_embedding(pos_items)
+            neg_items_emb = self.item_embedding(neg_items)
+            pos_score = torch.sum(seq_output * pos_items_emb, dim=-1)
+            neg_score = torch.sum(seq_output * neg_items_emb, dim=-1)
+            loss = self.loss_fct(pos_score, neg_score)
+            return loss
+        else:  # self.loss_type = 'CE'
+            test_item_emb = self.item_embedding.weight
+            logits = torch.matmul(seq_output, test_item_emb.transpose(0, 1))
+            loss = self.loss_fct(logits, pos_items)
+            return loss
+
+    def predict(self, interaction):
+        """Default dot-product prediction for sequential models."""
+        item_seq = interaction[self.ITEM_SEQ]
+        item_seq_len = interaction[self.ITEM_SEQ_LEN]
+        test_item = interaction[self.ITEM_ID]
+        seq_output = self.forward(item_seq, item_seq_len)
+        test_item_emb = self.item_embedding(test_item)
+        scores = torch.mul(seq_output, test_item_emb).sum(dim=1)
+        return scores
+
+    def full_sort_predict(self, interaction):
+        """Default full-sort prediction for sequential models."""
+        item_seq = interaction[self.ITEM_SEQ]
+        item_seq_len = interaction[self.ITEM_SEQ_LEN]
+        seq_output = self.forward(item_seq, item_seq_len)
+        test_items_emb = self.item_embedding.weight
+        scores = torch.matmul(seq_output, test_items_emb.transpose(0, 1))
+        return scores
+
 
 class KnowledgeRecommender(AbstractRecommender):
     """This is a abstract knowledge-based recommender. All the knowledge-based model should implement this class.
@@ -332,6 +377,23 @@ class ContextRecommender(AbstractRecommender):
                 )
 
         self.first_order_linear = FMFirstOrderLinear(config, dataset)
+
+        self.sigmoid = nn.Sigmoid()
+        self.loss = nn.BCEWithLogitsLoss()
+
+    def calculate_loss(self, interaction):
+        """Default BCE loss for context-aware models.
+
+        Subclasses that add regularization or use a different loss should
+        override this method.
+        """
+        label = interaction[self.LABEL]
+        output = self.forward(interaction)
+        return self.loss(output, label)
+
+    def predict(self, interaction):
+        """Default sigmoid prediction for context-aware models."""
+        return self.sigmoid(self.forward(interaction))
 
     def embed_float_fields(self, float_fields):
         """Embed the float feature columns

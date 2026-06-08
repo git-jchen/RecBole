@@ -20,12 +20,16 @@ Reference code:
 """
 
 import numpy as np
-import scipy.sparse as sp
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 from recbole.model.abstract_recommender import GeneralRecommender
+from recbole.model.graph_utils import (
+    build_norm_adj_matrix,
+    build_sparse_eye_matrix,
+    get_ego_embeddings,
+)
 from recbole.model.init import xavier_normal_initialization
 from recbole.model.layers import BiGNNLayer, SparseDropout
 from recbole.model.loss import BPRLoss, EmbLoss
@@ -71,81 +75,27 @@ class NGCF(GeneralRecommender):
         self.restore_item_e = None
 
         # generate intermediate data
-        self.norm_adj_matrix = self.get_norm_adj_mat().to(self.device)
-        self.eye_matrix = self.get_eye_mat().to(self.device)
+        self.norm_adj_matrix = build_norm_adj_matrix(
+            self.interaction_matrix, self.n_users, self.n_items
+        ).to(self.device)
+        self.eye_matrix = build_sparse_eye_matrix(
+            self.n_items + self.n_users
+        ).to(self.device)
 
         # parameters initialization
         self.apply(xavier_normal_initialization)
         self.other_parameter_name = ["restore_user_e", "restore_item_e"]
 
     def get_norm_adj_mat(self):
-        r"""Get the normalized interaction matrix of users and items.
-
-        Construct the square matrix from the training data and normalize it
-        using the laplace matrix.
-
-        .. math::
-            A_{hat} = D^{-0.5} \times A \times D^{-0.5}
-
-        Returns:
-            Sparse tensor of the normalized interaction matrix.
-        """
-        # build adj matrix
-        A = sp.dok_matrix(
-            (self.n_users + self.n_items, self.n_users + self.n_items), dtype=np.float32
+        return build_norm_adj_matrix(
+            self.interaction_matrix, self.n_users, self.n_items
         )
-        inter_M = self.interaction_matrix
-        inter_M_t = self.interaction_matrix.transpose()
-        data_dict = dict(
-            zip(zip(inter_M.row, inter_M.col + self.n_users), [1] * inter_M.nnz)
-        )
-        data_dict.update(
-            dict(
-                zip(
-                    zip(inter_M_t.row + self.n_users, inter_M_t.col),
-                    [1] * inter_M_t.nnz,
-                )
-            )
-        )
-        A._update(data_dict)
-        # norm adj matrix
-        sumArr = (A > 0).sum(axis=1)
-        diag = (
-            np.array(sumArr.flatten())[0] + 1e-7
-        )  # add epsilon to avoid divide by zero Warning
-        diag = np.power(diag, -0.5)
-        D = sp.diags(diag)
-        L = D * A * D
-        # covert norm_adj matrix to tensor
-        L = sp.coo_matrix(L)
-        row = L.row
-        col = L.col
-        i = torch.LongTensor(np.array([row, col]))
-        data = torch.FloatTensor(L.data)
-        SparseL = torch.sparse.FloatTensor(i, data, torch.Size(L.shape))
-        return SparseL
 
     def get_eye_mat(self):
-        r"""Construct the identity matrix with the size of  n_items+n_users.
-
-        Returns:
-            Sparse tensor of the identity matrix. Shape of (n_items+n_users, n_items+n_users)
-        """
-        num = self.n_items + self.n_users  # number of column of the square matrix
-        i = torch.LongTensor([range(0, num), range(0, num)])
-        val = torch.FloatTensor([1] * num)  # identity matrix
-        return torch.sparse.FloatTensor(i, val)
+        return build_sparse_eye_matrix(self.n_items + self.n_users)
 
     def get_ego_embeddings(self):
-        r"""Get the embedding of users and items and combine to an embedding matrix.
-
-        Returns:
-            Tensor of the embedding matrix. Shape of (n_items+n_users, embedding_dim)
-        """
-        user_embeddings = self.user_embedding.weight
-        item_embeddings = self.item_embedding.weight
-        ego_embeddings = torch.cat([user_embeddings, item_embeddings], dim=0)
-        return ego_embeddings
+        return get_ego_embeddings(self.user_embedding, self.item_embedding)
 
     def forward(self):
         A_hat = (
