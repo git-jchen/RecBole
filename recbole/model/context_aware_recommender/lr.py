@@ -12,9 +12,9 @@ Reference:
 """
 
 import torch.nn as nn
-from torch.nn.init import xavier_normal_
 
 from recbole.model.abstract_recommender import ContextRecommender
+from recbole.model.init import xavier_normal_initialization
 
 
 class LR(ContextRecommender):
@@ -31,25 +31,11 @@ class LR(ContextRecommender):
     def __init__(self, config, dataset):
         super(LR, self).__init__(config, dataset)
 
-        self.sigmoid = nn.Sigmoid()
-        self.loss = nn.BCEWithLogitsLoss()
-
         # parameters initialization
-        self.apply(self._init_weights)
-
-    def _init_weights(self, module):
-        if isinstance(module, nn.Embedding):
-            xavier_normal_(module.weight.data)
+        self.apply(xavier_normal_initialization)
 
     def forward(self, interaction):
         output = self.first_order_linear(interaction)
         return output.squeeze(-1)
 
-    def calculate_loss(self, interaction):
-        label = interaction[self.LABEL]
 
-        output = self.forward(interaction)
-        return self.loss(output, label)
-
-    def predict(self, interaction):
-        return self.sigmoid(self.forward(interaction))

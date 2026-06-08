@@ -20,9 +20,9 @@ Reference code:
 
 import torch
 import torch.nn as nn
-from torch.nn.init import xavier_normal_, constant_
 
 from recbole.model.abstract_recommender import ContextRecommender
+from recbole.model.init import xavier_normal_initialization
 from recbole.model.layers import MLPLayers
 from recbole.model.loss import RegLoss
 
@@ -73,19 +73,9 @@ class DCN(ContextRecommender):
         self.mlp_layers = MLPLayers(size_list, dropout=self.dropout_prob, bn=True)
         self.predict_layer = nn.Linear(in_feature_num, 1)
         self.reg_loss = RegLoss()
-        self.sigmoid = nn.Sigmoid()
-        self.loss = nn.BCEWithLogitsLoss()
 
         # parameters initialization
-        self.apply(self._init_weights)
-
-    def _init_weights(self, module):
-        if isinstance(module, nn.Embedding):
-            xavier_normal_(module.weight.data)
-        elif isinstance(module, nn.Linear):
-            xavier_normal_(module.weight.data)
-            if module.bias is not None:
-                constant_(module.bias.data, 0)
+        self.apply(xavier_normal_initialization)
 
     def cross_network(self, x_0):
         r"""Cross network is composed of cross layers, with each layer having the following formula.
@@ -132,5 +122,4 @@ class DCN(ContextRecommender):
         l2_loss = self.reg_weight * self.reg_loss(self.cross_layer_w)
         return self.loss(output, label) + l2_loss
 
-    def predict(self, interaction):
-        return self.sigmoid(self.forward(interaction))
+

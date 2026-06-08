@@ -12,9 +12,9 @@ Reference:
 """
 
 import torch.nn as nn
-from torch.nn.init import xavier_normal_, constant_
 
 from recbole.model.abstract_recommender import ContextRecommender
+from recbole.model.init import xavier_normal_initialization
 from recbole.model.layers import MLPLayers
 
 
@@ -40,19 +40,9 @@ class WideDeep(ContextRecommender):
         ] + self.mlp_hidden_size
         self.mlp_layers = MLPLayers(size_list, self.dropout_prob)
         self.deep_predict_layer = nn.Linear(self.mlp_hidden_size[-1], 1)
-        self.sigmoid = nn.Sigmoid()
-        self.loss = nn.BCEWithLogitsLoss()
 
         # parameters initialization
-        self.apply(self._init_weights)
-
-    def _init_weights(self, module):
-        if isinstance(module, nn.Embedding):
-            xavier_normal_(module.weight.data)
-        elif isinstance(module, nn.Linear):
-            xavier_normal_(module.weight.data)
-            if module.bias is not None:
-                constant_(module.bias.data, 0)
+        self.apply(xavier_normal_initialization)
 
     def forward(self, interaction):
         widedeep_all_embeddings = self.concat_embed_input_fields(
@@ -67,10 +57,4 @@ class WideDeep(ContextRecommender):
         output = fm_output + deep_output
         return output.squeeze(-1)
 
-    def calculate_loss(self, interaction):
-        label = interaction[self.LABEL]
-        output = self.forward(interaction)
-        return self.loss(output, label)
 
-    def predict(self, interaction):
-        return self.sigmoid(self.forward(interaction))

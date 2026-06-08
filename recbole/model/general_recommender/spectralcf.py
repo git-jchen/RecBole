@@ -19,6 +19,11 @@ import scipy.sparse as sp
 import torch
 
 from recbole.model.abstract_recommender import GeneralRecommender
+from recbole.model.graph_utils import (
+    build_sparse_eye_matrix,
+    get_ego_embeddings,
+    sp_mat_to_tensor,
+)
 from recbole.model.init import xavier_uniform_initialization
 from recbole.model.loss import BPRLoss, EmbLoss
 from recbole.utils import InputType
@@ -60,7 +65,7 @@ class SpectralCF(GeneralRecommender):
         # generate intermediate data
         # "A_hat = I + L" is equivalent to "A_hat = U U^T + U \Lambda U^T"
         self.interaction_matrix = dataset.inter_matrix(form="coo").astype(np.float32)
-        I = self.get_eye_mat(self.n_items + self.n_users)
+        I = build_sparse_eye_matrix(self.n_items + self.n_users)
         L = self.get_laplacian_matrix()
         A_hat = I + L
         self.A_hat = A_hat.to(self.device)
@@ -103,7 +108,6 @@ class SpectralCF(GeneralRecommender):
         Returns:
             Sparse tensor of the laplacian matrix.
         """
-        # build adj matrix
         A = sp.dok_matrix(
             (self.n_users + self.n_items, self.n_users + self.n_items), dtype=np.float32
         )
@@ -122,48 +126,20 @@ class SpectralCF(GeneralRecommender):
         )
         A._update(data_dict)
 
-        # norm adj matrix
         sumArr = (A > 0).sum(axis=1)
         diag = np.array(sumArr.flatten())[0] + 1e-7
         diag = np.power(diag, -1)
         D = sp.diags(diag)
-        A_tilde = D * A
+        A_tilde = sp_mat_to_tensor(sp.coo_matrix(D * A))
 
-        # covert norm_adj matrix to tensor
-        A_tilde = sp.coo_matrix(A_tilde)
-        row = A_tilde.row
-        col = A_tilde.col
-        i = torch.LongTensor([row, col])
-        data = torch.FloatTensor(A_tilde.data)
-        A_tilde = torch.sparse.FloatTensor(i, data, torch.Size(A_tilde.shape))
-
-        # generate laplace matrix
-        L = self.get_eye_mat(self.n_items + self.n_users) - A_tilde
+        L = build_sparse_eye_matrix(self.n_items + self.n_users) - A_tilde
         return L
 
     def get_eye_mat(self, num):
-        r"""Construct the identity matrix with the size of  n_items+n_users.
-
-        Args:
-            num: number of column of the square matrix
-
-        Returns:
-            Sparse tensor of the identity matrix. Shape of (n_items+n_users, n_items+n_users)
-        """
-        i = torch.LongTensor([range(0, num), range(0, num)])
-        val = torch.FloatTensor([1] * num)
-        return torch.sparse.FloatTensor(i, val)
+        return build_sparse_eye_matrix(num)
 
     def get_ego_embeddings(self):
-        r"""Get the embedding of users and items and combine to an embedding matrix.
-
-        Returns:
-            Tensor of the embedding matrix. Shape of (n_items+n_users, embedding_dim)
-        """
-        user_embeddings = self.user_embedding.weight
-        item_embeddings = self.item_embedding.weight
-        ego_embeddings = torch.cat([user_embeddings, item_embeddings], dim=0)
-        return ego_embeddings
+        return get_ego_embeddings(self.user_embedding, self.item_embedding)
 
     def forward(self):
         all_embeddings = self.get_ego_embeddings()

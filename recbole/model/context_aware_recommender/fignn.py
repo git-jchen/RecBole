@@ -99,8 +99,6 @@ class FiGNN(ContextRecommender):
             bias=False,
         )
 
-        self.sigmoid = nn.Sigmoid()
-        self.loss = nn.BCEWithLogitsLoss()
         # parameters initialization
         self.apply(self._init_weights)
 
@@ -161,10 +159,4 @@ class FiGNN(ContextRecommender):
         output = self.fignn_layer(fignn_all_embeddings)
         return output.squeeze(1)
 
-    def calculate_loss(self, interaction):
-        label = interaction[self.LABEL]
-        output = self.forward(interaction)
-        return self.loss(output, label)
 
-    def predict(self, interaction):
-        return self.sigmoid(self.forward(interaction))
