@@ -12,6 +12,7 @@ recbole.config.configurator
 ################################
 """
 
+import ast
 import re
 import os
 import sys
@@ -104,7 +105,7 @@ class Config(object):
         self.parameters["Dataset"] = dataset_arguments
 
     def _build_yaml_loader(self):
-        loader = yaml.FullLoader
+        loader = yaml.SafeLoader
         loader.add_implicit_resolver(
             "tag:yaml.org,2002:float",
             re.compile(
@@ -128,12 +129,12 @@ class Config(object):
             if not isinstance(param, str):
                 continue
             try:
-                value = eval(param)
+                value = ast.literal_eval(param)
                 if value is not None and not isinstance(
-                    value, (str, int, float, list, tuple, dict, bool, Enum)
+                    value, (str, int, float, list, tuple, dict, bool)
                 ):
                     value = param
-            except (NameError, SyntaxError, TypeError):
+            except (ValueError, SyntaxError):
                 if isinstance(param, str):
                     if param.lower() == "true":
                         value = True

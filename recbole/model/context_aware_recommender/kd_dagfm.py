@@ -20,6 +20,7 @@ from copy import deepcopy
 
 from recbole.model.init import xavier_normal_initialization
 from recbole.model.abstract_recommender import ContextRecommender
+from recbole.utils import get_model
 
 
 class KD_DAGFM(ContextRecommender):
@@ -41,7 +42,7 @@ class KD_DAGFM(ContextRecommender):
 
         # initialize teacher&student network
         self.student_network = DAGFM(config)
-        self.teacher_network = eval(f"{config['teacher']}")(
+        self.teacher_network = get_model(config["teacher"])(
             self.get_teacher_config(config)
         )
 
@@ -53,7 +54,7 @@ class KD_DAGFM(ContextRecommender):
             if "warm_up" not in config:
                 raise ValueError("Must have warm up!")
             else:
-                save_info = torch.load(config["warm_up"])
+                save_info = torch.load(config["warm_up"], weights_only=False)
                 self.load_state_dict(save_info["state_dict"])
         else:
             self.apply(xavier_normal_initialization)
