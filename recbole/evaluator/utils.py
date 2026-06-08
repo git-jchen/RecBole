@@ -57,7 +57,7 @@ def trunc(scores, method):
         method (str): one of ['ceil', 'floor', 'around']
 
     Raises:
-        NotImplementedError: method error
+        AttributeError: if method is not a valid numpy function
 
     Returns:
         numpy.ndarray: processed scores
@@ -65,8 +65,8 @@ def trunc(scores, method):
 
     try:
         cut_method = getattr(np, method)
-    except NotImplementedError:
-        raise NotImplementedError(
+    except AttributeError:
+        raise AttributeError(
             "module 'numpy' has no function named '{}'".format(method)
         )
     scores = cut_method(scores)

@@ -46,7 +46,7 @@ def set_color(log, color, highlight=True):
     color_set = ["black", "red", "green", "yellow", "blue", "pink", "cyan", "white"]
     try:
         index = color_set.index(color)
-    except:
+    except ValueError:
         index = len(color_set) - 1
     prev_log = "\033["
     if highlight:

@@ -105,7 +105,7 @@ class FFM(ContextRecommender):
                 for v in value:
                     try:
                         self.feature2field[self.feature2id[v]] = key
-                    except:
+                    except KeyError:
                         pass
 
     def get_ffm_input(self, interaction):
