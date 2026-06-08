@@ -154,10 +154,15 @@ class DGCF(GeneralRecommender):
             d_values = torch.sparse.mm(self.edge2head_mat, tp_values)
             # (num_node, num_edge) (num_edge, 1) -> (num_node, 1)
             d_values = torch.clamp(d_values, min=1e-8)
-            try:
-                assert not torch.isnan(d_values).any()
-            except AssertionError:
-                self.logger.info("d_values", torch.min(d_values), torch.max(d_values))
+            if torch.isnan(d_values).any():
+                self.logger.warning(
+                    "NaN detected in d_values: min=%s, max=%s",
+                    torch.min(d_values),
+                    torch.max(d_values),
+                )
+                raise ValueError(
+                    "NaN values detected in d_values during edge weight computation."
+                )
 
             d_values = 1.0 / torch.sqrt(d_values)
             head_term = torch.sparse.mm(self.head2edge_mat, d_values)

@@ -79,10 +79,12 @@ def download_url(url, folder):
                     "Downloaded {:.2f} GB".format(float(downloaded_size) / GBFACTOR)
                 )
                 f.write(chunk)
-    except:
+    except BaseException as e:
         if os.path.exists(path):
             os.remove(path)
-        raise RuntimeError("Stopped downloading due to interruption.")
+        raise RuntimeError(
+            "Stopped downloading due to interruption."
+        ) from e
 
     return path
 

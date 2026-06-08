@@ -397,11 +397,11 @@ class DiffRec(GeneralRecommender, AutoEncoderMixin):
                 try:
                     self.Lt_history[t, self.Lt_count[t]] = loss.detach()
                     self.Lt_count[t] += 1
-                except:
-                    print(t)
-                    print(self.Lt_count[t])
-                    print(loss)
-                    raise ValueError
+                except (IndexError, RuntimeError) as e:
+                    raise ValueError(
+                        f"Failed to update Lt_history: t={t}, "
+                        f"Lt_count[t]={self.Lt_count[t]}, loss={loss}"
+                    ) from e
 
     def sample_timesteps(
         self, batch_size, device, method="uniform", uniform_prob=0.001

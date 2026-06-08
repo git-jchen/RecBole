@@ -308,8 +308,8 @@ class S3Rec(SequentialRecommender):
                     for index in indexes:
                         if index >= 0:
                             features[index] = 1
-                except:
-                    # single class
+                except TypeError:
+                    # single class (indexes is a scalar, not iterable)
                     features[indexes] = 1
                 associated_features.append(features)
 

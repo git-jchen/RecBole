@@ -93,7 +93,7 @@ class FwFM(ContextRecommender):
                 for v in value:
                     try:
                         self.feature2field[self.feature2id[v]] = key
-                    except:
+                    except KeyError:
                         pass
 
     def fwfm_layer(self, infeature):
